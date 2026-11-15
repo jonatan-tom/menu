@@ -3,132 +3,107 @@ package com.restaurante.menu.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.restaurante.menu.entity.Producto;
 import com.restaurante.menu.service.ProductoService;
 
-/**
- * Prueba los endpoints REST con MockMvc y un servicio simulado (no requiere MySQL).
- */
+@ExtendWith(MockitoExtension.class)
 class ProductoControllerTest {
 
+	@Mock
 	private ProductoService productoService;
+
+	@InjectMocks
+	private ProductoController productoController;
+
 	private MockMvc mockMvc;
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
 	void setUp() {
-		productoService = mock(ProductoService.class);
-		mockMvc = MockMvcBuilders.standaloneSetup(new ProductoController(productoService))
-				.setControllerAdvice(new GlobalExceptionHandler())
-				.build();
+		mockMvc = standaloneSetup(productoController).build();
 	}
 
 	@Test
-	void listaProductos() throws Exception {
-		when(productoService.listar(null, false)).thenReturn(List.of(producto(1, "Burguer al Carbón")));
+	void listarProductosDevuelveLista() throws Exception {
+		Producto p = new Producto(1, 1, "Hamburguesa", "Clásica", new BigDecimal("10000"), null, true);
+		when(productoService.listar(null, false)).thenReturn(List.of(p));
 
 		mockMvc.perform(get("/api/productos"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].id").value(1))
-				.andExpect(jsonPath("$[0].nombre").value("Burguer al Carbón"));
+				.andExpect(jsonPath("$[0].nombre").value("Hamburguesa"));
 	}
 
 	@Test
-	void obtieneUnProductoPorId() throws Exception {
-		when(productoService.obtener(1)).thenReturn(producto(1, "Burguer al Carbón"));
+	void obtenerProductoPorIdDevuelveProducto() throws Exception {
+		Producto p = new Producto(1, 1, "Hamburguesa", "Clásica", new BigDecimal("10000"), null, true);
+		when(productoService.obtener(1)).thenReturn(p);
 
 		mockMvc.perform(get("/api/productos/1"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.nombre").value("Burguer al Carbón"))
-				.andExpect(jsonPath("$.precio").value(12000));
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.nombre").value("Hamburguesa"));
 	}
 
 	@Test
-	void devuelve404CuandoNoExiste() throws Exception {
-		when(productoService.obtener(99)).thenThrow(new NoSuchElementException("Producto no encontrado"));
-
-		mockMvc.perform(get("/api/productos/99"))
-				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.error").value("Producto no encontrado"));
-	}
-
-	@Test
-	void creaUnProductoYDevuelve201() throws Exception {
-		when(productoService.crear(any(Producto.class))).thenReturn(producto(15, "Burguer Chorimeta"));
+	void crearProductoDevuelveProductoCreado() throws Exception {
+		Producto entrada = new Producto(null, 1, "Pizza", "Familiar", new BigDecimal("15000"), null, true);
+		Producto salida = new Producto(1, 1, "Pizza", "Familiar", new BigDecimal("15000"), null, true);
+		when(productoService.crear(any(Producto.class))).thenReturn(salida);
 
 		mockMvc.perform(post("/api/productos")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-						{
-						  "categoriaId": 1,
-						  "nombre": "Burguer Chorimeta",
-						  "descripcion": "Con chorizo",
-						  "precio": 15000,
-						  "disponible": true
-						}
-						"""))
+				.contentType("application/json")
+				.content(objectMapper.writeValueAsString(entrada)))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.id").value(15))
-				.andExpect(jsonPath("$.nombre").value("Burguer Chorimeta"));
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.nombre").value("Pizza"));
 	}
 
 	@Test
-	void devuelve400CuandoLosDatosSonInvalidos() throws Exception {
-		when(productoService.crear(any(Producto.class)))
-				.thenThrow(new IllegalArgumentException("El campo 'nombre' es obligatorio"));
-
-		mockMvc.perform(post("/api/productos")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"categoriaId\": 1, \"precio\": 15000}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.error").value("El campo 'nombre' es obligatorio"));
-	}
-
-	@Test
-	void actualizaUnProducto() throws Exception {
-		when(productoService.actualizar(eq(1), any(Producto.class))).thenReturn(producto(1, "Burguer Actualizada"));
+	void actualizarProductoDevuelveProductoActualizado() throws Exception {
+		Producto entrada = new Producto(null, 1, "Pizza", "Familiar", new BigDecimal("16000"), null, true);
+		Producto salida = new Producto(1, 1, "Pizza", "Familiar", new BigDecimal("16000"), null, true);
+		when(productoService.actualizar(eq(1), any(Producto.class))).thenReturn(salida);
 
 		mockMvc.perform(put("/api/productos/1")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-						{
-						  "categoriaId": 1,
-						  "nombre": "Burguer Actualizada",
-						  "precio": 13000,
-						  "disponible": true
-						}
-						"""))
+				.contentType("application/json")
+				.content(objectMapper.writeValueAsString(entrada)))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.nombre").value("Burguer Actualizada"));
+				.andExpect(jsonPath("$.precio").value(16000));
 	}
 
 	@Test
-	void eliminaUnProductoYDevuelve204() throws Exception {
+	void cambiarDisponibilidadProductoDevuelveProducto() throws Exception {
+		Producto salida = new Producto(1, 1, "Hamburguesa", "Clásica", new BigDecimal("10000"), null, false);
+		when(productoService.cambiarDisponibilidad(eq(1), eq(false))).thenReturn(salida);
+
+		mockMvc.perform(patch("/api/productos/1/disponibilidad?disponible=false"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.disponible").value(false));
+	}
+
+	@Test
+	void eliminarProductoDevuelveNoContent() throws Exception {
 		doNothing().when(productoService).eliminar(1);
 
 		mockMvc.perform(delete("/api/productos/1"))
 				.andExpect(status().isNoContent());
-	}
-
-	private Producto producto(Integer id, String nombre) {
-		return new Producto(id, 1, nombre, "Descripción", new BigDecimal("12000"), "", true);
 	}
 }

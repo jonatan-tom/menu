@@ -247,3 +247,7 @@ usuario (independiente, para el panel administrativo)
   `spring.sql.init.mode=never`. La base se prepara una vez con `schema.sql`.
 - La contraseña de los usuarios se almacena cifrada con BCrypt.
 - El panel web (Thymeleaf) está disponible en `/`, `/menu`, `/login` y `/admin/**`.
+
+## Cambio en rama de reportes
+
+Esta línea fue agregada desde la rama `feature/reportes` como parte del ejercicio de Git y GitHub.
